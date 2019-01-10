@@ -12,8 +12,20 @@ use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\HttpKernel;
 use Symfony\Component\HttpKernel\Controller\ControllerResolver;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver;
+use Symfony\Component\HttpKernel\Controller\ArgumentResolver\RequestAttributeValueResolver;
+use Symfony\Component\HttpKernel\Controller\ArgumentResolver\RequestValueResolver;
+use Symfony\Component\HttpKernel\Controller\ArgumentResolver\SessionValueResolver;
+use Symfony\Component\HttpKernel\Controller\ArgumentResolver\ServiceValueResolver;
+use Symfony\Component\HttpKernel\Controller\ArgumentResolver\DefaultValueResolver;
+use Symfony\Component\HttpKernel\Controller\ArgumentResolver\VariadicValueResolver;
+use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadataFactory;
 use Symfony\Component\HttpKernel\EventListener\RouterListener;
 use Symfony\Component\HttpKernel\EventListener\ResponseListener;
+use Symfony\Component\HttpKernel\EventListener\StreamedResponseListener;
+use Symfony\Component\HttpKernel\EventListener\LocaleListener;
+use Symfony\Component\HttpKernel\EventListener\ExceptionListener;
+use Symfony\Component\HttpKernel\EventListener\ValidateRequestListener;
+use Symfony\Component\HttpKernel\EventListener\DebugHandlersListener;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 //use Symfony\Component\HttpFoundation;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -43,8 +55,8 @@ trait MicroKernelTrait
     }
     public function loadRoutes()
     {
-        $routes = new RouteCollectionBuilder($loader);
-        //$this->configureRoutes($routes);
+        $routes = new RouteCollectionBuilder(null);
+        $this->configureRoutes($routes);
         return $routes->build();
     }
 
@@ -60,17 +72,48 @@ trait MicroKernelTrait
         ;
         $container->register('request_stack', RequestStack::class);
         $container->register('controller_resolver', ControllerResolver::class);
-        $container->register('argument_resolver', ArgumentResolver::class);
-        
+
+
+        /*
+        $container->register('argument_metadata_factory', ArgumentMetadataFactory::class);
+        $container->register('argument_resolver.request_attribute', RequestAttributeValueResolver::class);
+        $container->register('argument_resolver.request', RequestValueResolver::class);
+        $container->register('argument_resolver.session', SessionValueResolver::class);
+        $container->register('argument_resolver.service', ServiceValueResolver::class);
+        $container->register('argument_resolver.default', DefaultValueResolver::class);
+        $container->register('argument_resolver.variadic', VariadicValueResolver::class);
+        */
+
+        $container->register('argument_resolver', ArgumentResolver::class)
+            /*
+            ->setArguments(array(
+                new Reference('argument_metadata_factory')
+            ))
+             */
+        ;
         $container->register('listener.router', RouterListener::class)
             ->setArguments(array(new Reference('router.url_matcher'), new Reference('request_stack')))
         ;
         $container->register('listener.response', ResponseListener::class)
             ->setArguments(array('UTF-8'))
         ;
+        $container->register('listener.streamed_response', StreamedResponseListener::class);
+        $container->register('listener.http_exception', ExceptionListener::class)
+            ->setArguments(array(null, null, $this->debug, $this->getCharset()))
+        ;
+        /*
+        $container->register('listener.debug_handlers', DebugHandlersListener::class)
+            ->setArguments(array(null, null, null, -1, true, null, true))
+            ;
+        */
+
+        $container->register('listener.validate_request', ValidateRequestListener::class);
         $container->register('event_dispatcher', EventDispatcher::class)
             ->addMethodCall('addSubscriber', array(new Reference('listener.router')))
             ->addMethodCall('addSubscriber', array(new Reference('listener.response')))
+            ->addMethodCall('addSubscriber', array(new Reference('listener.streamed_response')))
+            ->addMethodCall('addSubscriber', array(new Reference('listener.http_exception')))
+        //    ->addMethodCall('addSubscriber', array(new Reference('listener.debug_handlers')))
         ;
         $container->register('http_kernel', HttpKernel::class)
             ->setArguments(array(
@@ -79,7 +122,7 @@ trait MicroKernelTrait
                 new Reference('request_stack'),
                 new Reference('argument_resolver'),
             ))
-            ->setPublic(true);
+            ->setPublic(true)
         ;
 
         $this->configureContainer($container);
