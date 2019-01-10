@@ -1,0 +1,45 @@
+{
+    "name": "uxgood/mini-framework",
+    "type": "library",
+    "description": "Minimal Framework Library",
+    "keywords": [],
+    "homepage": "https://github.com/uxgood/mini-framework",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "UxGood",
+            "email": "uxgood.org@gmail.com"
+        }
+    ],
+    "require": {
+        "symfony/dependency-injection": "^4.2",
+        "symfony/event-dispatcher": "^4.2",
+        "symfony/http-foundation": "^4.2",
+        "symfony/http-kernel": "^4.2",
+        "symfony/routing": "^4.2"
+    },
+    "require-dev": {
+    },
+    "provide": {
+    },
+    "autoload": {
+        "psr-4": {
+            "UxGood\\MiniFramework\\": ""
+        },
+        "exclude-from-classmap": [
+            "/Tests/"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "UxGood\\MiniFramework\\Tests\\": "Tests/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "extra": {
+        "branch-alias": {
+            "dev-master": "0.1-dev"
+        }
+    }
+}
