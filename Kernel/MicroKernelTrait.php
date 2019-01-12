@@ -7,12 +7,17 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Routing\RouteCollectionBuilder;
 
+use UxGood\MiniFramework\Controller\ControllerResolver;
+use UxGood\MiniFramework\Controller\ControllerNameParser;
+
 #use Symfony\Component\HttpKernel\DependencyInjection\AddAnnotatedClassesToCachePass;
+use Symfony\Component\DependencyInjection\Alias;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\HttpKernel;
-use Symfony\Component\HttpKernel\Controller\ControllerResolver;
+//use Symfony\Component\HttpKernel\Controller\ControllerResolver;
+use Symfony\Component\HttpKernel\Controller\ContainerControllerResolver;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 /*
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver\RequestAttributeValueResolver;
@@ -80,12 +85,25 @@ trait MicroKernelTrait
         $container->addObjectResource($this);
         $this->prepareContainer($container);
         $routes = $this->loadRoutes();
+        $container->register('kernel')->setSynthetic(true);
         $container->register('router.request_context', RequestContext::class);
         $container->register('router.url_matcher', UrlMatcher::class)
             ->setArguments(array($routes, new Reference('router.request_context')))
         ;
-        $container->register('request_stack', RequestStack::class);
-        $container->register('controller_resolver', ControllerResolver::class);
+        $container->setAlias('router', new Alias('router.url_matcher'))
+            ->setPublic(true)
+        ;
+        $container->register('controller_name_converter', ControllerNameParser::class)
+            ->setArguments(array(new Reference('kernel')));
+        $container->register('request_stack', RequestStack::class)->setPublic(true);
+        //$container->register('controller_resolver', ControllerResolver::class);
+        //$container->register('controller_resolver', ContainerControllerResolver::class)
+        $container->register('controller_resolver', ControllerResolver::class)
+            ->setArguments(array(
+                new Reference('service_container'),
+                new Reference('controller_name_converter')
+            ))
+        ;
 
 
         /*
