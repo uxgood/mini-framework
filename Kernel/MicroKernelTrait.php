@@ -9,9 +9,12 @@ use Symfony\Component\Routing\RouteCollectionBuilder;
 
 #use Symfony\Component\HttpKernel\DependencyInjection\AddAnnotatedClassesToCachePass;
 use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\DependencyInjection\ServiceLocator;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\HttpKernel;
 use Symfony\Component\HttpKernel\Controller\ControllerResolver;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver;
+/*
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver\RequestAttributeValueResolver;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver\RequestValueResolver;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver\SessionValueResolver;
@@ -19,19 +22,30 @@ use Symfony\Component\HttpKernel\Controller\ArgumentResolver\ServiceValueResolve
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver\DefaultValueResolver;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver\VariadicValueResolver;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadataFactory;
+ */
 use Symfony\Component\HttpKernel\EventListener\RouterListener;
 use Symfony\Component\HttpKernel\EventListener\ResponseListener;
 use Symfony\Component\HttpKernel\EventListener\StreamedResponseListener;
-use Symfony\Component\HttpKernel\EventListener\LocaleListener;
+//use Symfony\Component\HttpKernel\EventListener\LocaleListener;
 use Symfony\Component\HttpKernel\EventListener\ExceptionListener;
 use Symfony\Component\HttpKernel\EventListener\ValidateRequestListener;
 use Symfony\Component\HttpKernel\EventListener\DebugHandlersListener;
+use Symfony\Component\HttpKernel\EventListener\SessionListener;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 //use Symfony\Component\HttpFoundation;
 use Symfony\Component\HttpFoundation\RequestStack;
 //use Symfony\Component\Routing;
 use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
+
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\NativeSessionStorage;
+use Symfony\Component\HttpFoundation\Session\Storage\MetadataBag;
+use Symfony\Component\HttpFoundation\Session\Flash\FlashBag;
+use Symfony\Component\HttpFoundation\Session\Attribute\AttributeBag;
+use Symfony\Component\HttpFoundation\Session\Storage\Handler\NativeFileSessionHandler;
+use Symfony\Component\HttpFoundation\Session\Storage\Handler\StrictSessionHandler;
+use Symfony\Component\DependencyInjection\Argument\ServiceLocatorArgument;
 
 trait MicroKernelTrait
 {
@@ -101,20 +115,28 @@ trait MicroKernelTrait
         $container->register('listener.http_exception', ExceptionListener::class)
             ->setArguments(array(null, null, $this->debug, $this->getCharset()))
         ;
-        /*
         $container->register('listener.debug_handlers', DebugHandlersListener::class)
             ->setArguments(array(null, null, null, -1, true, null, true))
             ;
-        */
 
+
+        $container->register('session', Session::class);
+        $container->register('listener.session', SessionListener::class)
+            ->setArguments(array(new ServiceLocatorArgument(array(
+                'session' => new Reference('session', ContainerInterface::IGNORE_ON_INVALID_REFERENCE),
+                'initialized_session' => new Reference('session', ContainerInterface::IGNORE_ON_UNINITIALIZED_REFERENCE)
+            ))))
+        ;
         $container->register('listener.validate_request', ValidateRequestListener::class);
         $container->register('event_dispatcher', EventDispatcher::class)
             ->addMethodCall('addSubscriber', array(new Reference('listener.router')))
             ->addMethodCall('addSubscriber', array(new Reference('listener.response')))
             ->addMethodCall('addSubscriber', array(new Reference('listener.streamed_response')))
             ->addMethodCall('addSubscriber', array(new Reference('listener.http_exception')))
-        //    ->addMethodCall('addSubscriber', array(new Reference('listener.debug_handlers')))
+            ->addMethodCall('addSubscriber', array(new Reference('listener.session')))
+            ->addMethodCall('addSubscriber', array(new Reference('listener.debug_handlers')))
         ;
+
         $container->register('http_kernel', HttpKernel::class)
             ->setArguments(array(
                 new Reference('event_dispatcher'),
