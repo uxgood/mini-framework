@@ -9,6 +9,7 @@ use Symfony\Component\Routing\RouteCollectionBuilder;
 
 use UxGood\MiniFramework\Controller\ControllerResolver;
 use UxGood\MiniFramework\Controller\ControllerNameParser;
+use UxGood\MiniFramework\Routing\Router;
 
 #use Symfony\Component\HttpKernel\DependencyInjection\AddAnnotatedClassesToCachePass;
 use Symfony\Component\DependencyInjection\Alias;
@@ -41,7 +42,7 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\RequestStack;
 //use Symfony\Component\Routing;
 use Symfony\Component\Routing\RequestContext;
-use Symfony\Component\Routing\Matcher\UrlMatcher;
+//use Symfony\Component\Routing\Matcher\UrlMatcher;
 
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\NativeSessionStorage;
@@ -84,13 +85,20 @@ trait MicroKernelTrait
         $container = $this->getContainerBuilder();
         $container->addObjectResource($this);
         $this->prepareContainer($container);
-        $routes = $this->loadRoutes();
         $container->register('kernel')->setSynthetic(true);
         $container->register('router.request_context', RequestContext::class);
-        $container->register('router.url_matcher', UrlMatcher::class)
-            ->setArguments(array($routes, new Reference('router.request_context')))
+        //$container->register('router.url_matcher', UrlMatcher::class)
+        //    ->setArguments(array($routes, new Reference('router.request_context')))
+        //;
+        $routes = $this->loadRoutes();
+        $container->register('router.default', Router::class)
+            ->setArguments(array(
+                new Reference('service_container'),
+                null
+            ))
+            ->addMethodCall('addCollection', array($routes))
         ;
-        $container->setAlias('router', new Alias('router.url_matcher'))
+        $container->setAlias('router', new Alias('router.default'))
             ->setPublic(true)
         ;
         $container->register('controller_name_converter', ControllerNameParser::class)
@@ -124,10 +132,10 @@ trait MicroKernelTrait
              */
         ;
         $container->register('listener.router', RouterListener::class)
-            ->setArguments(array(new Reference('router.url_matcher'), new Reference('request_stack')))
+            ->setArguments(array(new Reference('router.default'), new Reference('request_stack')))
         ;
         $container->register('listener.response', ResponseListener::class)
-            ->setArguments(array('UTF-8'))
+            ->setArguments(array($this->getCharset()))
         ;
         $container->register('listener.streamed_response', StreamedResponseListener::class);
         $container->register('listener.http_exception', ExceptionListener::class)
